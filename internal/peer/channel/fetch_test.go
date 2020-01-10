@@ -166,18 +166,20 @@ func getMockDeliverService(block *cb.Block) *mock.DeliverService {
 }
 
 func createTestBlock() *cb.Block {
-	metadataBytes := protoutil.MarshalOrPanic(&cb.Metadata{
-		Value: protoutil.MarshalOrPanic(&cb.OrdererBlockMetadata{
-			LastConfig: &cb.LastConfig{Index: 0},
-		}),
-	})
-
+	lc := &cb.LastConfig{Index: 0}
+	lcBytes := protoutil.MarshalOrPanic(lc)
+	metadata := &cb.Metadata{
+		Value: lcBytes,
+	}
+	metadataBytes := protoutil.MarshalOrPanic(metadata)
+	blockMetadata := make([][]byte, cb.BlockMetadataIndex_LAST_CONFIG+1)
+	blockMetadata[cb.BlockMetadataIndex_LAST_CONFIG] = metadataBytes
 	block := &cb.Block{
 		Header: &cb.BlockHeader{
 			Number: 0,
 		},
 		Metadata: &cb.BlockMetadata{
-			Metadata: [][]byte{metadataBytes},
+			Metadata: blockMetadata,
 		},
 	}
 

@@ -44,7 +44,6 @@ func (nfei *NotFoundErrorIterator) Close() {}
 func CreateNextBlock(rl Reader, messages []*cb.Envelope) *cb.Block {
 	var nextBlockNumber uint64
 	var previousBlockHash []byte
-	var err error
 
 	if rl.Height() > 0 {
 		it, _ := rl.Iterator(&ab.SeekPosition{
@@ -64,6 +63,7 @@ func CreateNextBlock(rl Reader, messages []*cb.Envelope) *cb.Block {
 		Data: make([][]byte, len(messages)),
 	}
 
+	var err error
 	for i, msg := range messages {
 		data.Data[i], err = proto.Marshal(msg)
 		if err != nil {

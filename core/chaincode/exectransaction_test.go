@@ -118,7 +118,7 @@ func initPeer(channelIDs ...string) (*cm.Lifecycle, net.Listener, *ChaincodeSupp
 	}
 
 	containerRouter := &container.Router{
-		DockerBuilder: &dockercontroller.DockerVM{
+		DockerVM: &dockercontroller.DockerVM{
 			PeerID:       "",
 			NetworkID:    "",
 			BuildMetrics: dockercontroller.NewBuildMetrics(&disabled.Provider{}),

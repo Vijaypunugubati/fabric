@@ -21,19 +21,31 @@ import (
 
 const listTimeout = 3 * time.Minute
 
-// PackageInfo is the subset of data from `go list -deps -json` that's
-// necessary to calculate chaincode package dependencies.
+const packageListFormat = `
+{{- if eq .Goroot false -}}
+{
+    "import_path": "{{ .ImportPath }}",
+    "incomplete": {{ .Incomplete }},
+    "dir": "{{ .Dir }}",
+    "go_files" : [{{ range $i, $file := .GoFiles  }}{{ if $i }}, {{ end }}"{{ $file }}"{{end}}],
+    "c_files":   [{{ range $i, $file := .CFiles   }}{{ if $i }}, {{ end }}"{{ $file }}"{{end}}],
+    "cgo_files": [{{ range $i, $file := .CgoFiles }}{{ if $i }}, {{ end }}"{{ $file }}"{{end}}],
+    "h_files":   [{{ range $i, $file := .HFiles   }}{{ if $i }}, {{ end }}"{{ $file }}"{{end}}],
+    "s_files":   [{{ range $i, $file := .SFiles   }}{{ if $i }}, {{ end }}"{{ $file }}"{{end}}],
+    "ignored_go_files": [{{ range $i, $file := .IgnoredGoFiles }}{{ if $i }}, {{ end }}"{{ $file }}"{{end}}]
+}
+{{- end -}}`
+
 type PackageInfo struct {
-	ImportPath     string
-	Dir            string
-	GoFiles        []string
-	Goroot         bool
-	CFiles         []string
-	CgoFiles       []string
-	HFiles         []string
-	SFiles         []string
-	IgnoredGoFiles []string
-	Incomplete     bool
+	ImportPath     string   `json:"import_path,omitempty"`
+	Dir            string   `json:"dir,omitempty"`
+	GoFiles        []string `json:"go_files,omitempty"`
+	CFiles         []string `json:"c_files,omitempty"`
+	CgoFiles       []string `json:"cgo_files,omitempty"`
+	HFiles         []string `json:"h_files,omitempty"`
+	SFiles         []string `json:"s_files,omitempty"`
+	IgnoredGoFiles []string `json:"ignored_go_files,omitempty"`
+	Incomplete     bool     `json:"incomplete,omitempty"`
 }
 
 func (p PackageInfo) Files() []string {
@@ -53,7 +65,7 @@ func gopathDependencyPackageInfo(goos, goarch, pkg string) ([]PackageInfo, error
 	ctx, cancel := context.WithTimeout(context.Background(), listTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "list", "-deps", "-json", pkg)
+	cmd := exec.CommandContext(ctx, "go", "list", "-deps", "-f", packageListFormat, pkg)
 	cmd.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+goarch)
 
 	stdout, err := cmd.StdoutPipe()
@@ -80,9 +92,6 @@ func gopathDependencyPackageInfo(goos, goarch, pkg string) ([]PackageInfo, error
 		if packageInfo.Incomplete {
 			return nil, fmt.Errorf("failed to calculate dependencies: incomplete package: %s", packageInfo.ImportPath)
 		}
-		if packageInfo.Goroot {
-			continue
-		}
 
 		list = append(list, packageInfo)
 	}
@@ -102,11 +111,18 @@ func wrapExitErr(err error, message string) error {
 	return errors.Wrap(err, message)
 }
 
+const moduleListFormat = `{
+    "dir": "{{ .Module.Dir }}",
+    "gomod": "{{ .Module.GoMod }}",
+    "import_path": "{{ .ImportPath }}",
+    "module_path": "{{ .Module.Path }}"
+}`
+
 type ModuleInfo struct {
-	Dir        string
-	GoMod      string
-	ImportPath string
-	ModulePath string
+	Dir        string `json:"dir,omitempty"`
+	ImportPath string `json:"import_path,omitempty"`
+	ModulePath string `json:"module_path,omitempty"`
+	GoMod      string `json:"gomod,omitempty"`
 }
 
 // listModuleInfo extracts module information for the curent working directory.
@@ -114,7 +130,7 @@ func listModuleInfo(extraEnv ...string) (*ModuleInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), listTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "list", "-json", ".")
+	cmd := exec.CommandContext(ctx, "go", "list", "-f", moduleListFormat, ".")
 	cmd.Env = append(os.Environ(), "GO111MODULE=on")
 	cmd.Env = append(cmd.Env, extraEnv...)
 
@@ -123,23 +139,10 @@ func listModuleInfo(extraEnv ...string) (*ModuleInfo, error) {
 		return nil, wrapExitErr(err, "'go list' failed")
 	}
 
-	var moduleData struct {
-		ImportPath string
-		Module     struct {
-			Dir   string
-			Path  string
-			GoMod string
-		}
-	}
-
-	if err := json.Unmarshal(output, &moduleData); err != nil {
+	var moduleInfo ModuleInfo
+	if err := json.Unmarshal(output, &moduleInfo); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal output from 'go list'")
 	}
 
-	return &ModuleInfo{
-		Dir:        moduleData.Module.Dir,
-		GoMod:      moduleData.Module.GoMod,
-		ImportPath: moduleData.ImportPath,
-		ModulePath: moduleData.Module.Path,
-	}, nil
+	return &moduleInfo, nil
 }

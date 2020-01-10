@@ -28,7 +28,6 @@ modularity and versatility for a broad set of industry use cases.
    developapps/developing_applications
    tutorials
    ops_guide
-   upgrade
    command_ref
    architecture
    Fabric-FAQ

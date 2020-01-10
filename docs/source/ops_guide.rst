@@ -4,10 +4,13 @@ Operations Guides
 .. toctree::
    :maxdepth: 1
 
+   upgrade_to_newest_version
    orderer_deploy
+   config_update
    msp
    hsm.md
    configtx
+   capability_requirements
    endorsement-policies
    pluggable_endorsement_and_validation
    access_control.md
@@ -15,8 +18,6 @@ Operations Guides
    idemixgen
    operations_service
    metrics_reference
-   cc_launcher
-   cc_service
    error-handling
    logging-control
    enable_tls

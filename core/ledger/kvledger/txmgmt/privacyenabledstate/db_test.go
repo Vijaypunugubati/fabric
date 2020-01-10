@@ -27,7 +27,7 @@ import (
 func TestMain(m *testing.M) {
 	exitCode := m.Run()
 	for _, testEnv := range testEnvs {
-		testEnv.StopExternalResource()
+		testEnv.Cleanup()
 	}
 	os.Exit(exitCode)
 }
@@ -84,7 +84,6 @@ func TestDB(t *testing.T) {
 
 func testDB(t *testing.T, env TestEnv) {
 	env.Init(t)
-	defer env.Cleanup()
 	db := env.GetDBHandle(generateLedgerID(t))
 
 	updates := NewUpdateBatch()
@@ -150,7 +149,6 @@ func TestGetStateMultipleKeys(t *testing.T) {
 
 func testGetStateMultipleKeys(t *testing.T, env TestEnv) {
 	env.Init(t)
-	defer env.Cleanup()
 	db := env.GetDBHandle(generateLedgerID(t))
 
 	updates := NewUpdateBatch()
@@ -193,7 +191,6 @@ func TestGetStateRangeScanIterator(t *testing.T) {
 
 func testGetStateRangeScanIterator(t *testing.T, env TestEnv) {
 	env.Init(t)
-	defer env.Cleanup()
 	db := env.GetDBHandle(generateLedgerID(t))
 
 	updates := NewUpdateBatch()
@@ -254,7 +251,6 @@ func TestQueryOnCouchDB(t *testing.T) {
 
 func testQueryOnCouchDB(t *testing.T, env TestEnv) {
 	env.Init(t)
-	defer env.Cleanup()
 	db := env.GetDBHandle(generateLedgerID(t))
 	updates := NewUpdateBatch()
 
@@ -335,7 +331,6 @@ func TestLongDBNameOnCouchDB(t *testing.T) {
 
 func testLongDBNameOnCouchDB(t *testing.T, env TestEnv) {
 	env.Init(t)
-	defer env.Cleanup()
 
 	// Creates metadataDB (i.e., chainDB)
 	// Allowed pattern for chainName: [a-z][a-z0-9.-]
@@ -446,7 +441,6 @@ func createCollectionConfig(collectionName string) *peer.CollectionConfig {
 
 func testHandleChainCodeDeploy(t *testing.T, env TestEnv) {
 	env.Init(t)
-	defer env.Cleanup()
 	db := env.GetDBHandle(generateLedgerID(t))
 
 	coll1 := createCollectionConfig("collectionMarbles")
@@ -551,7 +545,6 @@ func TestMetadataRetrieval(t *testing.T) {
 
 func testMetadataRetrieval(t *testing.T, env TestEnv) {
 	env.Init(t)
-	defer env.Cleanup()
 	db := env.GetDBHandle(generateLedgerID(t))
 
 	updates := NewUpdateBatch()

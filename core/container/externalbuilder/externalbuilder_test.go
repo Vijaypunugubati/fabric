@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric/common/flogging"
+	"github.com/hyperledger/fabric/core/chaincode/persistence"
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/container/externalbuilder"
 	"github.com/hyperledger/fabric/core/peer"
@@ -27,7 +28,7 @@ var _ = Describe("externalbuilder", func() {
 	var (
 		codePackage *os.File
 		logger      *flogging.FabricLogger
-		md          []byte
+		md          *persistence.ChaincodePackageMetadata
 	)
 
 	BeforeEach(func() {
@@ -35,7 +36,10 @@ var _ = Describe("externalbuilder", func() {
 		codePackage, err = os.Open("testdata/normal_archive.tar.gz")
 		Expect(err).NotTo(HaveOccurred())
 
-		md = []byte(`{"some":"fake-metadata"}`)
+		md = &persistence.ChaincodePackageMetadata{
+			Path: "fake-path",
+			Type: "fake-type",
+		}
 
 		enc := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{MessageKey: "msg"})
 		core := zapcore.NewCore(enc, zapcore.AddSync(GinkgoWriter), zap.NewAtomicLevel())

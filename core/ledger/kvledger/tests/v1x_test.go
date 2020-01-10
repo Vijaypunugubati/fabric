@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/fabric/core/ledger/kvledger"
 	"github.com/hyperledger/fabric/core/ledger/mock"
 	"github.com/hyperledger/fabric/core/ledger/util/couchdb"
-	"github.com/hyperledger/fabric/core/ledger/util/couchdbtest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -72,7 +71,7 @@ func TestV13WithStateCouchdb(t *testing.T) {
 	testutil.CopyDir("testdata/v13_statecouchdb/couchdb_etc/local.d", localdHostDir, true)
 
 	// start couchdb using couchdbDataUnzipDir and localdHostDir as mount dirs
-	couchAddress, cleanup := couchdbtest.CouchDBSetup(couchdbDataUnzipDir, localdHostDir)
+	couchAddress, cleanup := couchDBSetup(t, couchdbDataUnzipDir, localdHostDir)
 	defer cleanup()
 
 	// set required config data to use state couchdb

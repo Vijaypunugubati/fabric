@@ -137,6 +137,7 @@ func (ec *eligibilityComputer) computeEligibility(pvtdataToRetrieve []*ledger.Tx
 			eligibleMissingKeys[key] = rwsetInfo{
 				invalid: invalid,
 			}
+
 			sources[key] = endorsersFromEligibleOrgs(ns, col, endorsers, policy.MemberOrgs())
 		}
 	}
@@ -224,9 +225,13 @@ func (pdp *PvtdataProvider) RetrievePvtdata(pvtdataToRetrieve []*ledger.TxPvtdat
 	pdp.logger.Debugf("Fetching %d collection private write sets from remote peers for a maximum duration of %s", len(pvtdataRetrievalInfo.eligibleMissingKeys), retryThresh)
 	startPull := time.Now()
 	for len(pvtdataRetrievalInfo.eligibleMissingKeys) > 0 && time.Since(startPull) < retryThresh {
-		if needToRetry := pdp.populateFromRemotePeers(pvtdata, pvtdataRetrievalInfo); !needToRetry {
+		pdp.populateFromRemotePeers(pvtdata, pvtdataRetrievalInfo)
+
+		// If succeeded to fetch everything, break to skip sleep
+		if len(pvtdataRetrievalInfo.eligibleMissingKeys) == 0 {
 			break
 		}
+
 		// If there are still missing keys, sleep before retry
 		pdp.sleeper.Sleep(pullRetrySleepInterval)
 	}
@@ -339,15 +344,13 @@ func (pdp *PvtdataProvider) populateFromTransientStore(pvtdata rwsetByKeys, pvtd
 
 // populateFromRemotePeers populates pvtdata with data fetched from remote peers and updates
 // pvtdataRetrievalInfo by removing missing data that was fetched from remote peers
-func (pdp *PvtdataProvider) populateFromRemotePeers(pvtdata rwsetByKeys, pvtdataRetrievalInfo *pvtdataRetrievalInfo) bool {
+func (pdp *PvtdataProvider) populateFromRemotePeers(pvtdata rwsetByKeys, pvtdataRetrievalInfo *pvtdataRetrievalInfo) {
 	pdp.logger.Debugf("Attempting to retrieve %d private write sets from remote peers.", len(pvtdataRetrievalInfo.eligibleMissingKeys))
 
 	dig2src := make(map[pvtdatacommon.DigKey][]*peer.Endorsement)
-	var skipped int
 	for k, v := range pvtdataRetrievalInfo.eligibleMissingKeys {
 		if v.invalid && pdp.skipPullingInvalidTransactions {
 			pdp.logger.Debugf("Skipping invalid key [%v] because peer is configured to skip pulling rwsets of invalid transactions.", k)
-			skipped++
 			continue
 		}
 		pdp.logger.Debugf("Fetching [%v] from remote peers", k)
@@ -360,15 +363,10 @@ func (pdp *PvtdataProvider) populateFromRemotePeers(pvtdata rwsetByKeys, pvtdata
 		}
 		dig2src[dig] = pvtdataRetrievalInfo.sources[k]
 	}
-
-	if len(dig2src) == 0 {
-		return false
-	}
-
 	fetchedData, err := pdp.fetcher.fetch(dig2src)
 	if err != nil {
 		pdp.logger.Warningf("Failed fetching private data from remote peers for dig2src:[%v], err: %s", dig2src, err)
-		return true
+		return
 	}
 
 	// Iterate over data fetched from remote peers
@@ -411,8 +409,6 @@ func (pdp *PvtdataProvider) populateFromRemotePeers(pvtdata rwsetByKeys, pvtdata
 			}
 		}
 	}
-
-	return len(pvtdataRetrievalInfo.eligibleMissingKeys) > skipped
 }
 
 // prepareBlockPvtdata consolidates the fetched private data as well as ineligible and eligible

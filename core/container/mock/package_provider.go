@@ -10,28 +10,26 @@ import (
 )
 
 type PackageProvider struct {
-	GetChaincodePackageStub        func(string) (*persistence.ChaincodePackageMetadata, []byte, io.ReadCloser, error)
+	GetChaincodePackageStub        func(string) (*persistence.ChaincodePackageMetadata, io.ReadCloser, error)
 	getChaincodePackageMutex       sync.RWMutex
 	getChaincodePackageArgsForCall []struct {
 		arg1 string
 	}
 	getChaincodePackageReturns struct {
 		result1 *persistence.ChaincodePackageMetadata
-		result2 []byte
-		result3 io.ReadCloser
-		result4 error
+		result2 io.ReadCloser
+		result3 error
 	}
 	getChaincodePackageReturnsOnCall map[int]struct {
 		result1 *persistence.ChaincodePackageMetadata
-		result2 []byte
-		result3 io.ReadCloser
-		result4 error
+		result2 io.ReadCloser
+		result3 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *PackageProvider) GetChaincodePackage(arg1 string) (*persistence.ChaincodePackageMetadata, []byte, io.ReadCloser, error) {
+func (fake *PackageProvider) GetChaincodePackage(arg1 string) (*persistence.ChaincodePackageMetadata, io.ReadCloser, error) {
 	fake.getChaincodePackageMutex.Lock()
 	ret, specificReturn := fake.getChaincodePackageReturnsOnCall[len(fake.getChaincodePackageArgsForCall)]
 	fake.getChaincodePackageArgsForCall = append(fake.getChaincodePackageArgsForCall, struct {
@@ -43,10 +41,10 @@ func (fake *PackageProvider) GetChaincodePackage(arg1 string) (*persistence.Chai
 		return fake.GetChaincodePackageStub(arg1)
 	}
 	if specificReturn {
-		return ret.result1, ret.result2, ret.result3, ret.result4
+		return ret.result1, ret.result2, ret.result3
 	}
 	fakeReturns := fake.getChaincodePackageReturns
-	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3, fakeReturns.result4
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
 }
 
 func (fake *PackageProvider) GetChaincodePackageCallCount() int {
@@ -55,7 +53,7 @@ func (fake *PackageProvider) GetChaincodePackageCallCount() int {
 	return len(fake.getChaincodePackageArgsForCall)
 }
 
-func (fake *PackageProvider) GetChaincodePackageCalls(stub func(string) (*persistence.ChaincodePackageMetadata, []byte, io.ReadCloser, error)) {
+func (fake *PackageProvider) GetChaincodePackageCalls(stub func(string) (*persistence.ChaincodePackageMetadata, io.ReadCloser, error)) {
 	fake.getChaincodePackageMutex.Lock()
 	defer fake.getChaincodePackageMutex.Unlock()
 	fake.GetChaincodePackageStub = stub
@@ -68,36 +66,33 @@ func (fake *PackageProvider) GetChaincodePackageArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *PackageProvider) GetChaincodePackageReturns(result1 *persistence.ChaincodePackageMetadata, result2 []byte, result3 io.ReadCloser, result4 error) {
+func (fake *PackageProvider) GetChaincodePackageReturns(result1 *persistence.ChaincodePackageMetadata, result2 io.ReadCloser, result3 error) {
 	fake.getChaincodePackageMutex.Lock()
 	defer fake.getChaincodePackageMutex.Unlock()
 	fake.GetChaincodePackageStub = nil
 	fake.getChaincodePackageReturns = struct {
 		result1 *persistence.ChaincodePackageMetadata
-		result2 []byte
-		result3 io.ReadCloser
-		result4 error
-	}{result1, result2, result3, result4}
+		result2 io.ReadCloser
+		result3 error
+	}{result1, result2, result3}
 }
 
-func (fake *PackageProvider) GetChaincodePackageReturnsOnCall(i int, result1 *persistence.ChaincodePackageMetadata, result2 []byte, result3 io.ReadCloser, result4 error) {
+func (fake *PackageProvider) GetChaincodePackageReturnsOnCall(i int, result1 *persistence.ChaincodePackageMetadata, result2 io.ReadCloser, result3 error) {
 	fake.getChaincodePackageMutex.Lock()
 	defer fake.getChaincodePackageMutex.Unlock()
 	fake.GetChaincodePackageStub = nil
 	if fake.getChaincodePackageReturnsOnCall == nil {
 		fake.getChaincodePackageReturnsOnCall = make(map[int]struct {
 			result1 *persistence.ChaincodePackageMetadata
-			result2 []byte
-			result3 io.ReadCloser
-			result4 error
+			result2 io.ReadCloser
+			result3 error
 		})
 	}
 	fake.getChaincodePackageReturnsOnCall[i] = struct {
 		result1 *persistence.ChaincodePackageMetadata
-		result2 []byte
-		result3 io.ReadCloser
-		result4 error
-	}{result1, result2, result3, result4}
+		result2 io.ReadCloser
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *PackageProvider) Invocations() map[string][][]interface{} {

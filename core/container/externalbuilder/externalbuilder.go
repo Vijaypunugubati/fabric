@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/common/flogging"
+	"github.com/hyperledger/fabric/core/chaincode/persistence"
 	"github.com/hyperledger/fabric/core/container/ccintf"
 	"github.com/hyperledger/fabric/core/peer"
 	"github.com/pkg/errors"
@@ -93,7 +94,7 @@ func (d *Detector) CachedBuild(ccid string) (*Instance, error) {
 // durable path for the results of a previous build for the provided package.
 // If found, the detect and build process is skipped and the existing instance
 // is returned.
-func (d *Detector) Build(ccid string, mdBytes []byte, codeStream io.Reader) (*Instance, error) {
+func (d *Detector) Build(ccid string, md *persistence.ChaincodePackageMetadata, codeStream io.Reader) (*Instance, error) {
 	// A small optimization: prevent exploding the build package out into the
 	// file system unless there are external builders defined.
 	if len(d.Builders) == 0 {
@@ -109,7 +110,7 @@ func (d *Detector) Build(ccid string, mdBytes []byte, codeStream io.Reader) (*In
 		return i, nil
 	}
 
-	buildContext, err := NewBuildContext(ccid, mdBytes, codeStream)
+	buildContext, err := NewBuildContext(ccid, md, codeStream)
 	if err != nil {
 		return nil, errors.WithMessage(err, "could not create build context")
 	}
@@ -151,15 +152,17 @@ func (d *Detector) Build(ccid string, mdBytes []byte, codeStream io.Reader) (*In
 	}
 
 	durableReleaseDir := filepath.Join(durablePath, "release")
-	err = MoveOrCopyDir(logger, buildContext.ReleaseDir, durableReleaseDir)
+	err = os.Rename(buildContext.ReleaseDir, durableReleaseDir)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "could not move or copy build context release to persistent location '%s'", durablePath)
+		os.RemoveAll(durablePath)
+		return nil, errors.WithMessagef(err, "could not move build context release to persistent location '%s'", durablePath)
 	}
 
 	durableBldDir := filepath.Join(durablePath, "bld")
-	err = MoveOrCopyDir(logger, buildContext.BldDir, durableBldDir)
+	err = os.Rename(buildContext.BldDir, durableBldDir)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "could not move or copy build context bld to persistent location '%s'", durablePath)
+		os.RemoveAll(durablePath)
+		return nil, errors.WithMessagef(err, "could not move build context bld to persistent location '%s'", durablePath)
 	}
 
 	return &Instance{
@@ -184,6 +187,7 @@ func (d *Detector) detect(buildContext *BuildContext) *Builder {
 // execute the detect, build, release, and run programs for external builders
 type BuildContext struct {
 	CCID        string
+	Metadata    *persistence.ChaincodePackageMetadata
 	ScratchDir  string
 	SourceDir   string
 	ReleaseDir  string
@@ -196,7 +200,7 @@ type BuildContext struct {
 //
 // Users of the BuildContext must call Cleanup when the build process is
 // complete to remove the transient file system assets.
-func NewBuildContext(ccid string, mdBytes []byte, codePackage io.Reader) (bc *BuildContext, err error) {
+func NewBuildContext(ccid string, md *persistence.ChaincodePackageMetadata, codePackage io.Reader) (bc *BuildContext, err error) {
 	scratchDir, err := ioutil.TempDir("", "fabric-"+SanitizeCCIDPath(ccid))
 	if err != nil {
 		return nil, errors.WithMessage(err, "could not create temp dir")
@@ -233,7 +237,7 @@ func NewBuildContext(ccid string, mdBytes []byte, codePackage io.Reader) (bc *Bu
 		return nil, errors.WithMessage(err, "could not untar source package")
 	}
 
-	err = ioutil.WriteFile(filepath.Join(metadataDir, "metadata.json"), mdBytes, 0700)
+	err = writeMetadataFile(ccid, md, metadataDir)
 	if err != nil {
 		return nil, errors.WithMessage(err, "could not write metadata file")
 	}
@@ -244,6 +248,7 @@ func NewBuildContext(ccid string, mdBytes []byte, codePackage io.Reader) (bc *Bu
 		MetadataDir: metadataDir,
 		BldDir:      outputDir,
 		ReleaseDir:  releaseDir,
+		Metadata:    md,
 		CCID:        ccid,
 	}, nil
 }
@@ -259,6 +264,26 @@ var pkgIDreg = regexp.MustCompile("[<>:\"/\\\\|\\?\\*&]")
 // file names.
 func SanitizeCCIDPath(ccid string) string {
 	return pkgIDreg.ReplaceAllString(ccid, "-")
+}
+
+type buildMetadata struct {
+	Path      string `json:"path"`
+	Type      string `json:"type"`
+	PackageID string `json:"package_id"`
+}
+
+func writeMetadataFile(ccid string, md *persistence.ChaincodePackageMetadata, dst string) error {
+	buildMetadata := &buildMetadata{
+		Path:      md.Path,
+		Type:      md.Type,
+		PackageID: ccid,
+	}
+	mdBytes, err := json.Marshal(buildMetadata)
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal build metadata into JSON")
+	}
+
+	return ioutil.WriteFile(filepath.Join(dst, "metadata.json"), mdBytes, 0700)
 }
 
 // A Builder is used to interact with an external chaincode builder and launcher.

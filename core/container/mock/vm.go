@@ -5,15 +5,16 @@ import (
 	"io"
 	"sync"
 
+	"github.com/hyperledger/fabric/core/chaincode/persistence"
 	"github.com/hyperledger/fabric/core/container"
 )
 
-type ExternalBuilder struct {
-	BuildStub        func(string, []byte, io.Reader) (container.Instance, error)
+type VM struct {
+	BuildStub        func(string, *persistence.ChaincodePackageMetadata, io.Reader) (container.Instance, error)
 	buildMutex       sync.RWMutex
 	buildArgsForCall []struct {
 		arg1 string
-		arg2 []byte
+		arg2 *persistence.ChaincodePackageMetadata
 		arg3 io.Reader
 	}
 	buildReturns struct {
@@ -28,20 +29,15 @@ type ExternalBuilder struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *ExternalBuilder) Build(arg1 string, arg2 []byte, arg3 io.Reader) (container.Instance, error) {
-	var arg2Copy []byte
-	if arg2 != nil {
-		arg2Copy = make([]byte, len(arg2))
-		copy(arg2Copy, arg2)
-	}
+func (fake *VM) Build(arg1 string, arg2 *persistence.ChaincodePackageMetadata, arg3 io.Reader) (container.Instance, error) {
 	fake.buildMutex.Lock()
 	ret, specificReturn := fake.buildReturnsOnCall[len(fake.buildArgsForCall)]
 	fake.buildArgsForCall = append(fake.buildArgsForCall, struct {
 		arg1 string
-		arg2 []byte
+		arg2 *persistence.ChaincodePackageMetadata
 		arg3 io.Reader
-	}{arg1, arg2Copy, arg3})
-	fake.recordInvocation("Build", []interface{}{arg1, arg2Copy, arg3})
+	}{arg1, arg2, arg3})
+	fake.recordInvocation("Build", []interface{}{arg1, arg2, arg3})
 	fake.buildMutex.Unlock()
 	if fake.BuildStub != nil {
 		return fake.BuildStub(arg1, arg2, arg3)
@@ -53,26 +49,26 @@ func (fake *ExternalBuilder) Build(arg1 string, arg2 []byte, arg3 io.Reader) (co
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *ExternalBuilder) BuildCallCount() int {
+func (fake *VM) BuildCallCount() int {
 	fake.buildMutex.RLock()
 	defer fake.buildMutex.RUnlock()
 	return len(fake.buildArgsForCall)
 }
 
-func (fake *ExternalBuilder) BuildCalls(stub func(string, []byte, io.Reader) (container.Instance, error)) {
+func (fake *VM) BuildCalls(stub func(string, *persistence.ChaincodePackageMetadata, io.Reader) (container.Instance, error)) {
 	fake.buildMutex.Lock()
 	defer fake.buildMutex.Unlock()
 	fake.BuildStub = stub
 }
 
-func (fake *ExternalBuilder) BuildArgsForCall(i int) (string, []byte, io.Reader) {
+func (fake *VM) BuildArgsForCall(i int) (string, *persistence.ChaincodePackageMetadata, io.Reader) {
 	fake.buildMutex.RLock()
 	defer fake.buildMutex.RUnlock()
 	argsForCall := fake.buildArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *ExternalBuilder) BuildReturns(result1 container.Instance, result2 error) {
+func (fake *VM) BuildReturns(result1 container.Instance, result2 error) {
 	fake.buildMutex.Lock()
 	defer fake.buildMutex.Unlock()
 	fake.BuildStub = nil
@@ -82,7 +78,7 @@ func (fake *ExternalBuilder) BuildReturns(result1 container.Instance, result2 er
 	}{result1, result2}
 }
 
-func (fake *ExternalBuilder) BuildReturnsOnCall(i int, result1 container.Instance, result2 error) {
+func (fake *VM) BuildReturnsOnCall(i int, result1 container.Instance, result2 error) {
 	fake.buildMutex.Lock()
 	defer fake.buildMutex.Unlock()
 	fake.BuildStub = nil
@@ -98,7 +94,7 @@ func (fake *ExternalBuilder) BuildReturnsOnCall(i int, result1 container.Instanc
 	}{result1, result2}
 }
 
-func (fake *ExternalBuilder) Invocations() map[string][][]interface{} {
+func (fake *VM) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.buildMutex.RLock()
@@ -110,7 +106,7 @@ func (fake *ExternalBuilder) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *ExternalBuilder) recordInvocation(key string, args []interface{}) {
+func (fake *VM) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -122,4 +118,4 @@ func (fake *ExternalBuilder) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ container.ExternalBuilder = new(ExternalBuilder)
+var _ container.VM = new(VM)

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
-	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-chaincode-go/shim"
@@ -166,8 +165,6 @@ type SCC struct {
 
 	// BCCSP instance
 	BCCSP bccsp.BCCSP
-
-	PackageCache PackageCache
 }
 
 // PeerShim adapts the peer instance for use with LSCC by providing methods
@@ -204,50 +201,26 @@ func (p *PeerShim) PolicyManager(channelID string) (policies.Manager, bool) {
 func (lscc *SCC) Name() string              { return "lscc" }
 func (lscc *SCC) Chaincode() shim.Chaincode { return lscc }
 
-type PackageCache struct {
-	Mutex             sync.RWMutex
-	ValidatedPackages map[string]*ccprovider.ChaincodeData
-}
-
 type LegacySecurity struct {
-	Support      FilesystemSupport
-	PackageCache *PackageCache
+	Support FilesystemSupport
 }
 
 func (ls *LegacySecurity) SecurityCheckLegacyChaincode(cd *ccprovider.ChaincodeData) error {
-	ccid := cd.ChaincodeID()
-
-	ls.PackageCache.Mutex.RLock()
-	fsData, ok := ls.PackageCache.ValidatedPackages[ccid]
-	ls.PackageCache.Mutex.RUnlock()
-
-	if !ok {
-		ls.PackageCache.Mutex.Lock()
-		defer ls.PackageCache.Mutex.Unlock()
-		fsData, ok = ls.PackageCache.ValidatedPackages[ccid]
-		if !ok {
-			ccpack, err := ls.Support.GetChaincodeFromLocalStorage(cd.ChaincodeID())
-			if err != nil {
-				return InvalidDeploymentSpecErr(err.Error())
-			}
-
-			// This is 'the big security check', though it's no clear what's being accomplished
-			// here.  Basically, it seems to try to verify that the chaincode defintion matches
-			// what's on the filesystem, which, might include instanatiation policy, but it's
-			// not obvious from the code, and was being checked separately, so we check it
-			// explicitly below.
-			if err = ccpack.ValidateCC(cd); err != nil {
-				return InvalidCCOnFSError(err.Error())
-			}
-
-			if ls.PackageCache.ValidatedPackages == nil {
-				ls.PackageCache.ValidatedPackages = map[string]*ccprovider.ChaincodeData{}
-			}
-
-			fsData = ccpack.GetChaincodeData()
-			ls.PackageCache.ValidatedPackages[ccid] = fsData
-		}
+	ccpack, err := ls.Support.GetChaincodeFromLocalStorage(cd.ChaincodeID())
+	if err != nil {
+		return InvalidDeploymentSpecErr(err.Error())
 	}
+
+	// This is 'the big security check', though it's no clear what's being accomplished
+	// here.  Basically, it seems to try to verify that the chaincode defintion matches
+	// what's on the filesystem, which, might include instanatiation policy, but it's
+	// not obvious from the code, and was being checked separately, so we check it
+	// explicitly below.
+	if err = ccpack.ValidateCC(cd); err != nil {
+		return InvalidCCOnFSError(err.Error())
+	}
+
+	fsData := ccpack.GetChaincodeData()
 
 	// we have the info from the fs, check that the policy
 	// matches the one on the file system if one was specified;
@@ -287,8 +260,7 @@ func (lscc *SCC) ChaincodeEndorsementInfo(channelID, chaincodeName string, qe le
 	}
 
 	ls := &LegacySecurity{
-		Support:      lscc.Support,
-		PackageCache: &lscc.PackageCache,
+		Support: lscc.Support,
 	}
 
 	err = ls.SecurityCheckLegacyChaincode(chaincodeData)

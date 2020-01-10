@@ -369,11 +369,11 @@ func (s SourceMap) Sources() Sources {
 
 func (s SourceMap) Directories() []string {
 	dirMap := map[string]bool{}
-	for entryName := range s {
-		dir := path.Dir(entryName)
+	for filename := range s {
+		dir := filepath.Dir(filename)
 		for dir != "." && !dirMap[dir] {
 			dirMap[dir] = true
-			dir = path.Dir(dir)
+			dir = filepath.Dir(dir)
 		}
 	}
 
@@ -442,7 +442,6 @@ func findSource(cd *CodeDescriptor) (SourceMap, error) {
 			name = filepath.Join("src", cd.Path, name)
 		}
 
-		name = filepath.ToSlash(name)
 		sources[name] = SourceDescriptor{Name: name, Path: path}
 		return nil
 	}
@@ -462,7 +461,7 @@ func validateMetadata(name, path string) error {
 
 	// Validate metadata file for inclusion in tar
 	// Validation is based on the passed filename with path
-	err = ccmetadata.ValidateMetadataFile(filepath.ToSlash(name), contents)
+	err = ccmetadata.ValidateMetadataFile(name, contents)
 	if err != nil {
 		return err
 	}

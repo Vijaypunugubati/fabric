@@ -14,7 +14,6 @@ Organizations:{{ range .PeerOrgs }}
   ID: {{ .MSPID }}
   MSPDir: {{ $w.PeerOrgMSPDir . }}
   Policies:
-    {{- if .EnableNodeOUs }}
     Readers:
       Type: Signature
       Rule: OR('{{.MSPID}}.admin', '{{.MSPID}}.peer', '{{.MSPID}}.client')
@@ -27,20 +26,6 @@ Organizations:{{ range .PeerOrgs }}
     Admins:
       Type: Signature
       Rule: OR('{{.MSPID}}.admin')
-    {{- else }}
-    Readers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.member')
-    Writers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.member')
-    Endorsement:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.member')
-    Admins:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin')
-    {{- end }}
   AnchorPeers:{{ range $w.AnchorsInOrg .Name }}
   - Host: 127.0.0.1
     Port: {{ $w.PeerPort . "Listen" }}
@@ -53,7 +38,6 @@ Organizations:{{ range .PeerOrgs }}
   MSPDir: {{ $w.IdemixOrgMSPDir . }}
   MSPType: idemix
   Policies:
-    {{- if .EnableNodeOUs }}
     Readers:
       Type: Signature
       Rule: OR('{{.MSPID}}.admin', '{{.MSPID}}.peer', '{{.MSPID}}.client')
@@ -66,20 +50,6 @@ Organizations:{{ range .PeerOrgs }}
     Admins:
       Type: Signature
       Rule: OR('{{.MSPID}}.admin')
-    {{- else }}
-    Readers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.member')
-    Writers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.member')
-    Endorsement:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.member')
-    Admins:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin')
-    {{- end }}
 {{ end }}
 {{- range .OrdererOrgs }}
 - &{{ .MSPID }}
@@ -87,17 +57,6 @@ Organizations:{{ range .PeerOrgs }}
   ID: {{ .MSPID }}
   MSPDir: {{ $w.OrdererOrgMSPDir . }}
   Policies:
-  {{- if .EnableNodeOUs }}
-    Readers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin', '{{.MSPID}}.orderer', '{{.MSPID}}.client')
-    Writers:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin', '{{.MSPID}}.orderer', '{{.MSPID}}.client')
-    Admins:
-      Type: Signature
-      Rule: OR('{{.MSPID}}.admin')
-  {{- else }}
     Readers:
       Type: Signature
       Rule: OR('{{.MSPID}}.member')
@@ -107,7 +66,6 @@ Organizations:{{ range .PeerOrgs }}
     Admins:
       Type: Signature
       Rule: OR('{{.MSPID}}.admin')
-  {{- end }}
   OrdererEndpoints:{{ range $w.OrderersInOrg .Name }}
   - 127.0.0.1:{{ $w.OrdererPort . "Listen" }}
   {{- end }}

@@ -31,7 +31,6 @@ func TestPvtdataResultsItr(t *testing.T) {
 		},
 	)
 	testEnv.init(t, "test-pvtdata-range-queries", btlPolicy)
-	defer testEnv.cleanup()
 
 	txMgr := testEnv.getTxMgr().(*LockBasedTxMgr)
 	populateCollConfigForTest(t, txMgr, []collConfigkey{
@@ -91,7 +90,6 @@ func testPrivateDataMetadataRetrievalByHash(t *testing.T, env testEnv) {
 		},
 	)
 	env.init(t, ledgerid, btlPolicy)
-	defer env.cleanup()
 
 	txMgr := env.getTxMgr()
 	bg, _ := testutil.NewBlockGenerator(t, ledgerid, false)
@@ -139,7 +137,6 @@ func testGetPvtdataHash(t *testing.T, env testEnv) {
 		},
 	)
 	env.init(t, ledgerid, btlPolicy)
-	defer env.cleanup()
 	txMgr := env.getTxMgr().(*LockBasedTxMgr)
 	populateCollConfigForTest(t, txMgr, []collConfigkey{{"ns", "coll"}}, version.NewHeight(1, 1))
 

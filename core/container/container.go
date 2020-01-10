@@ -19,18 +19,11 @@ import (
 
 var vmLogger = flogging.MustGetLogger("container")
 
-//go:generate counterfeiter -o mock/docker_builder.go --fake-name DockerBuilder . DockerBuilder
+//go:generate counterfeiter -o mock/vm.go --fake-name VM . VM
 
-// DockerBuilder is what is exposed by the dockercontroller
-type DockerBuilder interface {
+//VM is an abstract virtual image for supporting arbitrary virual machines
+type VM interface {
 	Build(ccid string, metadata *persistence.ChaincodePackageMetadata, codePackageStream io.Reader) (Instance, error)
-}
-
-//go:generate counterfeiter -o mock/external_builder.go --fake-name ExternalBuilder . ExternalBuilder
-
-// ExternalBuilder is what is exposed by the dockercontroller
-type ExternalBuilder interface {
-	Build(ccid string, metadata []byte, codePackageStream io.Reader) (Instance, error)
 }
 
 //go:generate counterfeiter -o mock/instance.go --fake-name Instance . Instance
@@ -67,12 +60,12 @@ func (UninitializedInstance) Wait() (int, error) {
 
 // PackageProvider gets chaincode packages from the filesystem.
 type PackageProvider interface {
-	GetChaincodePackage(packageID string) (md *persistence.ChaincodePackageMetadata, mdBytes []byte, codeStream io.ReadCloser, err error)
+	GetChaincodePackage(packageID string) (*persistence.ChaincodePackageMetadata, io.ReadCloser, error)
 }
 
 type Router struct {
-	ExternalBuilder ExternalBuilder
-	DockerBuilder   DockerBuilder
+	ExternalVM      VM
+	DockerVM        VM
 	containers      map[string]Instance
 	PackageProvider PackageProvider
 	mutex           sync.Mutex
@@ -96,32 +89,29 @@ func (r *Router) getInstance(ccid string) Instance {
 func (r *Router) Build(ccid string) error {
 	var instance Instance
 
-	if r.ExternalBuilder != nil {
+	if r.ExternalVM != nil {
 		// for now, the package ID we retrieve from the FS is always the ccid
 		// the chaincode uses for registration
-		_, mdBytes, codeStream, err := r.PackageProvider.GetChaincodePackage(ccid)
+		metadata, codeStream, err := r.PackageProvider.GetChaincodePackage(ccid)
 		if err != nil {
 			return errors.WithMessage(err, "failed to get chaincode package for external build")
 		}
 		defer codeStream.Close()
 
-		instance, err = r.ExternalBuilder.Build(ccid, mdBytes, codeStream)
+		instance, err = r.ExternalVM.Build(ccid, metadata, codeStream)
 		if err != nil {
 			return errors.WithMessage(err, "external builder failed")
 		}
 	}
 
 	if instance == nil {
-		if r.DockerBuilder == nil {
-			return errors.New("no DockerBuilder, cannot build")
-		}
-		metadata, _, codeStream, err := r.PackageProvider.GetChaincodePackage(ccid)
+		metadata, codeStream, err := r.PackageProvider.GetChaincodePackage(ccid)
 		if err != nil {
 			return errors.WithMessage(err, "failed to get chaincode package for docker build")
 		}
 		defer codeStream.Close()
 
-		instance, err = r.DockerBuilder.Build(ccid, metadata, codeStream)
+		instance, err = r.DockerVM.Build(ccid, metadata, codeStream)
 		if err != nil {
 			return errors.WithMessage(err, "docker build failed")
 		}

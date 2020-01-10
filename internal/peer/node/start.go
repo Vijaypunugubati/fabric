@@ -135,10 +135,10 @@ type externalVMAdapter struct {
 
 func (e externalVMAdapter) Build(
 	ccid string,
-	mdBytes []byte,
+	metadata *persistence.ChaincodePackageMetadata,
 	codePackage io.Reader,
 ) (container.Instance, error) {
-	i, err := e.detector.Build(ccid, mdBytes, codePackage)
+	i, err := e.detector.Build(ccid, metadata, codePackage)
 	if err != nil {
 		return nil, err
 	}
@@ -495,46 +495,42 @@ func serve(args []string) error {
 		CCID:            scc.ChaincodeID(lifecycle.LifecycleNamespace),
 		HandlerRegistry: chaincodeHandlerRegistry,
 	}
-
-	if coreConfig.VMEndpoint == "" && len(coreConfig.ExternalBuilders) == 0 {
-		logger.Panic("VMEndpoint not set and no ExternalBuilders defined")
+	var client *docker.Client
+	if coreConfig.VMDockerTLSEnabled {
+		client, err = docker.NewTLSClient(coreConfig.VMEndpoint, coreConfig.DockerCert, coreConfig.DockerKey, coreConfig.DockerCA)
+	} else {
+		client, err = docker.NewClient(coreConfig.VMEndpoint)
+	}
+	if err != nil {
+		logger.Panicf("cannot create docker client: %s", err)
 	}
 
 	chaincodeConfig := chaincode.GlobalConfig()
 
-	var client *docker.Client
-	var dockerVM *dockercontroller.DockerVM
-	if coreConfig.VMEndpoint != "" {
-		client, err = createDockerClient(coreConfig)
-		if err != nil {
-			logger.Panicf("cannot create docker client: %s", err)
-		}
-
-		dockerVM = &dockercontroller.DockerVM{
-			PeerID:        coreConfig.PeerID,
-			NetworkID:     coreConfig.NetworkID,
-			BuildMetrics:  dockercontroller.NewBuildMetrics(opsSystem.Provider),
-			Client:        client,
-			AttachStdOut:  coreConfig.VMDockerAttachStdout,
-			HostConfig:    getDockerHostConfig(),
-			ChaincodePull: coreConfig.ChaincodePull,
-			NetworkMode:   coreConfig.VMNetworkMode,
-			PlatformBuilder: &platforms.Builder{
-				Registry: platformRegistry,
-				Client:   client,
-			},
-			// This field is superfluous for chaincodes built with v2.0+ binaries
-			// however, to prevent users from being forced to rebuild leaving for now
-			// but it should be removed in the future.
-			LoggingEnv: []string{
-				"CORE_CHAINCODE_LOGGING_LEVEL=" + chaincodeConfig.LogLevel,
-				"CORE_CHAINCODE_LOGGING_SHIM=" + chaincodeConfig.ShimLogLevel,
-				"CORE_CHAINCODE_LOGGING_FORMAT=" + chaincodeConfig.LogFormat,
-			},
-		}
-		if err := opsSystem.RegisterChecker("docker", dockerVM); err != nil {
-			logger.Panicf("failed to register docker health check: %s", err)
-		}
+	dockerVM := &dockercontroller.DockerVM{
+		PeerID:        coreConfig.PeerID,
+		NetworkID:     coreConfig.NetworkID,
+		BuildMetrics:  dockercontroller.NewBuildMetrics(opsSystem.Provider),
+		Client:        client,
+		AttachStdOut:  coreConfig.VMDockerAttachStdout,
+		HostConfig:    getDockerHostConfig(),
+		ChaincodePull: coreConfig.ChaincodePull,
+		NetworkMode:   coreConfig.VMNetworkMode,
+		PlatformBuilder: &platforms.Builder{
+			Registry: platformRegistry,
+			Client:   client,
+		},
+		// This field is superfluous for chaincodes built with v2.0+ binaries
+		// however, to prevent users from being forced to rebuild leaving for now
+		// but it should be removed in the future.
+		LoggingEnv: []string{
+			"CORE_CHAINCODE_LOGGING_LEVEL=" + chaincodeConfig.LogLevel,
+			"CORE_CHAINCODE_LOGGING_SHIM=" + chaincodeConfig.ShimLogLevel,
+			"CORE_CHAINCODE_LOGGING_FORMAT=" + chaincodeConfig.LogFormat,
+		},
+	}
+	if err := opsSystem.RegisterChecker("docker", dockerVM); err != nil {
+		logger.Panicf("failed to register docker health check: %s", err)
 	}
 
 	externalVM := &externalbuilder.Detector{
@@ -545,8 +541,8 @@ func serve(args []string) error {
 	buildRegistry := &container.BuildRegistry{}
 
 	containerRouter := &container.Router{
-		DockerBuilder:   dockerVM,
-		ExternalBuilder: externalVMAdapter{externalVM},
+		DockerVM:   dockerVM,
+		ExternalVM: externalVMAdapter{externalVM},
 		PackageProvider: &persistence.FallbackPackageLocator{
 			ChaincodePackageLocator: &persistence.ChaincodePackageLocator{
 				ChaincodeDir: chaincodeInstallPath,
@@ -937,7 +933,7 @@ func registerDiscoveryService(
 	discprotos.RegisterDiscoveryServer(peerServer.Server(), svc)
 }
 
-// create a CC listener using peer.chaincodeListenAddress (and if that's not set use peer.peerAddress)
+//create a CC listener using peer.chaincodeListenAddress (and if that's not set use peer.peerAddress)
 func createChaincodeServer(coreConfig *peer.Config, ca tlsgen.CA, peerHostname string) (srv *comm.GRPCServer, ccEndpoint string, err error) {
 	// before potentially setting chaincodeListenAddress, compute chaincode endpoint at first
 	ccEndpoint, err = computeChaincodeEndpoint(coreConfig.ChaincodeAddress, coreConfig.ChaincodeListenAddress, peerHostname)
@@ -1078,13 +1074,6 @@ func computeChaincodeEndpoint(chaincodeAddress string, chaincodeListenAddress st
 
 	logger.Infof("Exit with ccEndpoint: %s", ccEndpoint)
 	return ccEndpoint, nil
-}
-
-func createDockerClient(coreConfig *peer.Config) (*docker.Client, error) {
-	if coreConfig.VMDockerTLSEnabled {
-		return docker.NewTLSClient(coreConfig.VMEndpoint, coreConfig.DockerCert, coreConfig.DockerKey, coreConfig.DockerCA)
-	}
-	return docker.NewClient(coreConfig.VMEndpoint)
 }
 
 // secureDialOpts is the callback function for secure dial options for gossip service

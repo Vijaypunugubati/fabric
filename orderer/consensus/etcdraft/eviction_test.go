@@ -116,10 +116,8 @@ func TestEvictionSuspector(t *testing.T) {
 			Metadata: [][]byte{{}, {}, {}, {}},
 		},
 	}
-	configBlock.Metadata.Metadata[common.BlockMetadataIndex_SIGNATURES] = protoutil.MarshalOrPanic(&common.Metadata{
-		Value: protoutil.MarshalOrPanic(&common.OrdererBlockMetadata{
-			LastConfig: &common.LastConfig{Index: 9},
-		}),
+	configBlock.Metadata.Metadata[common.BlockMetadataIndex_LAST_CONFIG] = protoutil.MarshalOrPanic(&common.Metadata{
+		Value: protoutil.MarshalOrPanic(&common.LastConfig{Index: 9}),
 	})
 
 	puller := &mocks.ChainPuller{}
